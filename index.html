@@ -417,7 +417,8 @@
   const DEDUPE_WINDOW_MS = 5000;
   const WEDGE_QUIET_MS = 100;
   const BATCH_DELAY_MS = 500;
-  const REQUEST_TIMEOUT_MS = 15000;
+  const REQUEST_TIMEOUT_MS  = 15000;  // regular requests
+  const BOOTSTRAP_TIMEOUT_MS = 45000; // bootstrap needs more time for GAS cold starts
   
   const RETRY_CONFIG = {
     maxAttempts: 8,
@@ -433,7 +434,8 @@
   const queueStatusEl = $('#queueStatus');
   const bootOverlay = $('#bootOverlay');
 
-  const digitsOnly = s => String(s||'').replace(/\D+/g,'');
+  const digitsOnly   = s => String(s||'').replace(/\D+/g,'');
+  const normalizePin = s => digitsOnly(s).slice(-10).padStart(10, '0');
   const clamp = (n,min,max) => Math.min(max,Math.max(min,n));
 
   const LS_BOOT_SUCCESS = 'kiosk_bootstrap_last_success';
@@ -959,36 +961,50 @@
   let bootstrapReady  = false;
 
   async function loadBootstrap(isManualRefresh = false){
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    
-    const res = await fetch(ENDPOINT + '?action=bootstrap', {
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) {
-      throw new Error('Bootstrap HTTP ' + res.status);
-    }
-    const data = await res.json();
+    // Retry up to 3 times — GAS cold starts can take 20-30s
+    const MAX_ATTEMPTS = 3;
+    let lastError;
 
-    if (data.error) {
-      throw new Error(data.error);
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timeoutId  = setTimeout(() => controller.abort(), BOOTSTRAP_TIMEOUT_MS);
+
+      try {
+        const res = await fetch(ENDPOINT + '?action=bootstrap', {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) throw new Error('Bootstrap HTTP ' + res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        studentByLegacy = new Map(Object.entries(data.studentByLegacy || {}));
+        facultyByPin    = new Map(Object.entries(data.facultyPins    || {}));
+        facultyList     = Array.isArray(data.facultyList)  ? data.facultyList  : [];
+        studentList     = Array.isArray(data.studentList)  ? data.studentList  : [];
+        bootstrapReady  = true;
+
+        saveBootstrapSuccess(data.ts || Date.now());
+        updateRosterStatusLabel();
+
+        if (isManualRefresh) {
+          Toast.show('Roster refreshed successfully', true, 1800);
+        }
+        return; // success
+
+      } catch (e) {
+        clearTimeout(timeoutId);
+        lastError = e;
+        if (attempt < MAX_ATTEMPTS) {
+          // Brief pause before retry — gives GAS a moment to warm up
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
     }
 
-    studentByLegacy = new Map(Object.entries(data.studentByLegacy || {}));
-    facultyByPin    = new Map(Object.entries(data.facultyPins || {}));
-    facultyList     = Array.isArray(data.facultyList) ? data.facultyList : [];
-    studentList     = Array.isArray(data.studentList) ? data.studentList : [];
-    bootstrapReady  = true;
-
-    saveBootstrapSuccess(data.ts || Date.now());
-    updateRosterStatusLabel();
-    
-    if (isManualRefresh) {
-      Toast.show('Roster refreshed successfully', true, 1800);
-    }
+    // All attempts failed
+    throw lastError;
   }
 
   rosterStatusEl.addEventListener('click', async () => {
@@ -1354,10 +1370,10 @@
   pinEl.addEventListener('input', ()=>{
     clearTimeout(wedgeTimer);
     wedgeTimer = setTimeout(()=>{
-      const d = digitsOnly(pinEl.value);
-      if (d.length < 10) return;
+      const d   = digitsOnly(pinEl.value);
+      if (d.length < 9) return;
 
-      const ten = d.slice(-10);
+      const ten = normalizePin(d);
       if (Date.now() - lastSubmitAt < COOLDOWN_MS) return;
 
       const isIn = btnIn.classList.contains('active');
