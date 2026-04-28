@@ -1122,6 +1122,18 @@
 
       if (!res.ok || (data && data.error)) {
         const msg = (data && data.error) || ('Error ' + res.status);
+
+        // Drive outage — queue silently, no error toast (scan will retry automatically)
+        if (msg === 'service_unavailable') {
+          queuePendingScan({
+            action: act, src: bodyObj.src,
+            pin: pin||'', personId: personId||'',
+            firstName, lastName, grade,
+            clientTs: String(eventTs), scanId
+          });
+          return;
+        }
+
         Toast.show(msg, false); Chime.fail();
         queueClientError(msg, {
           a:act, pin:pin||'', personId:personId||'', src: bodyObj.src,
@@ -1348,6 +1360,14 @@
       clearTimeout(timeoutId);
       
       if (res.ok) {
+        // Check for service_unavailable — Drive outage, queue silently for retry
+        try {
+          const data = await res.clone().json();
+          if (data && data.error === 'service_unavailable') {
+            queuePendingScan(payload);
+            return;
+          }
+        } catch (_) {}
         return;
       }
 
