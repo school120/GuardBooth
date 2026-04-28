@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Attendance Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f6f3;
+  --surface:#ffffff;
+  --surface2:#f0ede8;
+  --border:#e2ddd6;
+  --border2:#ccc8c0;
+  --text:#1a1915;
+  --muted:#706c63;
+  --faint:#a09c94;
+  --in:#0f6e56;
+  --in-bg:#e1f5ee;
+  --out:#993c1d;
+  --out-bg:#faece7;
+  --accent:#3c3489;
+  --accent-bg:#eeedfe;
+  --radius:10px;
+  --radius-sm:6px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-size:15px;font-weight:600;letter-spacing:-.3px;display:flex;align-items:center;gap:10px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.header-right{display:flex;align-items:center;gap:12px}
+
+.date-nav{display:flex;align-items:center;gap:6px}
+.date-nav button{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.date-nav button:hover{background:var(--border)}
+.date-select{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;color:var(--text);cursor:pointer;height:30px}
+.date-select:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+.refresh-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-sm);padding:4px 12px;height:30px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;transition:all .15s;display:flex;align-items:center;gap:6px}
+.refresh-btn:hover{background:var(--border);color:var(--text)}
+.spin{animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+main{max-width:1200px;margin:0 auto;padding:28px 32px}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-label{font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:600;letter-spacing:-.5px;line-height:1}
+.stat-value.in{color:var(--in)}
+.stat-value.out{color:var(--out)}
+.stat-value.teachers{color:var(--accent)}
+
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel.full{grid-column:1/-1}
+.panel-header{padding:14px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:13px;font-weight:600;letter-spacing:-.1px}
+.panel-count{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;font-family:'DM Mono',monospace}
+
+.filter-row{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap}
+.filter-btn{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;color:var(--muted);transition:all .15s;white-space:nowrap}
+.filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.search-input{flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 10px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--text)}
+.search-input:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+.table-wrap{overflow:auto;max-height:420px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;background:var(--surface2);padding:8px 16px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg)}
+.name-cell{font-weight:500}
+.time-badge{font-family:'DM Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;display:inline-block;white-space:nowrap}
+.time-badge.in{background:var(--in-bg);color:var(--in)}
+.time-badge.out{background:var(--out-bg);color:var(--out)}
+.time-badge.empty{background:var(--surface2);color:var(--faint)}
+.grade-badge{font-size:11px;background:var(--accent-bg);color:var(--accent);padding:2px 7px;border-radius:4px;font-weight:500;font-family:'DM Mono',monospace}
+
+.empty-state{padding:40px 16px;text-align:center;color:var(--faint);font-size:13px}
+
+.loading-overlay{display:flex;align-items:center;justify-content:center;padding:48px;color:var(--faint);gap:10px;font-size:13px}
+.loader{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+
+.config-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
+.config-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;max-width:440px;width:100%;margin:24px}
+.config-card h2{font-size:17px;font-weight:600;margin-bottom:8px}
+.config-card p{color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:20px}
+.config-card label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:4px;letter-spacing:.05em;text-transform:uppercase}
+.config-card input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 12px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text);margin-bottom:14px}
+.config-card input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.config-save{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;margin-top:4px}
+.config-save:hover{background:#534ab7}
+.config-note{font-size:11px;color:var(--faint);margin-top:12px;text-align:center}
+
+@media(max-width:900px){
+  .panels{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  main{padding:16px}
+  header{padding:0 16px}
+}
+@media(max-width:500px){
+  .stats-row{grid-template-columns:1fr 1fr}
+  .stat-value{font-size:20px}
+}
+</style>
+</head>
+<body>
+
+<div id="config-screen" class="config-screen" style="display:none">
+  <div class="config-card">
+    <h2>Dashboard setup</h2>
+    <p>Enter your GAS web app URL and API key. These are saved in your browser and never sent anywhere except your own script.</p>
+    <label>Script URL</label>
+    <input id="cfg-url" type="url" placeholder="https://script.google.com/macros/s/.../exec"/>
+    <label>API Key</label>
+    <input id="cfg-key" type="password" placeholder="your-api-key"/>
+    <button class="config-save" onclick="saveConfig()">Save and load</button>
+    <p class="config-note">Stored in localStorage — stays in this browser only.</p>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div class="logo"><div class="logo-dot"></div>Attendance Dashboard</div>
+    <div class="header-right">
+      <div class="date-nav">
+        <button id="prev-btn" title="Previous day" onclick="shiftDay(-1)">&#8249;</button>
+        <select id="date-sel" class="date-select" onchange="loadDay(this.value)"></select>
+        <button id="next-btn" title="Next day" onclick="shiftDay(1)">&#8250;</button>
+      </div>
+      <button class="refresh-btn" onclick="refresh()"><span id="refresh-icon">&#8635;</span> Refresh</button>
+      <button class="refresh-btn" onclick="clearConfig()" title="Change endpoint">&#9881;</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-label">Students in</div><div class="stat-value in" id="stat-in">—</div></div>
+      <div class="stat"><div class="stat-label">Students out</div><div class="stat-value out" id="stat-out">—</div></div>
+      <div class="stat"><div class="stat-label">Teachers in</div><div class="stat-value teachers" id="stat-teachers">—</div></div>
+      <div class="stat"><div class="stat-label">Still out</div><div class="stat-value" id="stat-still-out" style="color:var(--faint)">—</div></div>
+    </div>
+
+    <div class="panels">
+      <div class="panel full">
+        <div class="panel-header">
+          <span class="panel-title">Teachers</span>
+          <span class="panel-count" id="teacher-count"></span>
+        </div>
+        <div class="filter-row">
+          <input class="search-input" id="teacher-search" type="search" placeholder="Search teacher…" oninput="renderTeachers()"/>
+        </div>
+        <div id="teacher-table" class="table-wrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Students — in</span>
+          <span class="panel-count" id="in-count"></span>
+        </div>
+        <div class="filter-row" id="grade-filters-in"></div>
+        <div class="filter-row">
+          <input class="search-input" id="in-search" type="search" placeholder="Search student…" oninput="renderStudentsIn()"/>
+        </div>
+        <div id="in-table" class="table-wrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Students — out</span>
+          <span class="panel-count" id="out-count"></span>
+        </div>
+        <div class="filter-row" id="grade-filters-out"></div>
+        <div class="filter-row">
+          <input class="search-input" id="out-search" type="search" placeholder="Search student…" oninput="renderStudentsOut()"/>
+        </div>
+        <div id="out-table" class="table-wrap"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const LS_URL = 'dash_endpoint';
+const LS_KEY = 'dash_apikey';
+const LS_DAY = 'dash_last_day';
+
+let state = { teachers:[], studentsIn:[], studentsOut:[], availableDates:[], day:'' };
+let gradeFilterIn  = 'all';
+let gradeFilterOut = 'all';
+let loading = false;
+
+function getConfig(){ return { url: localStorage.getItem(LS_URL)||'', key: localStorage.getItem(LS_KEY)||'' }; }
+
+function saveConfig(){
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  if (!url || !key){ alert('Both fields are required.'); return; }
+  localStorage.setItem(LS_URL, url);
+  localStorage.setItem(LS_KEY, key);
+  boot();
+}
+
+function clearConfig(){
+  if (!confirm('Reset endpoint config?')) return;
+  localStorage.removeItem(LS_URL);
+  localStorage.removeItem(LS_KEY);
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('config-screen').style.display = 'flex';
+}
+
+function boot(){
+  const { url, key } = getConfig();
+  if (!url || !key){
+    document.getElementById('config-screen').style.display = 'flex';
+    return;
+  }
+  document.getElementById('config-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  const savedDay = localStorage.getItem(LS_DAY) || todayISO();
+  loadDay(savedDay);
+}
+
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+async function loadDay(day){
+  if (loading) return;
+  loading = true;
+  setRefreshSpin(true);
+
+  const { url, key } = getConfig();
+  try {
+    const res  = await fetch(`${url}?action=attendance&day=${encodeURIComponent(day)}&apiKey=${encodeURIComponent(key)}`);
+    const data = await res.json();
+    if (data.error){ alert('Error: ' + data.error); return; }
+
+    state = data;
+    localStorage.setItem(LS_DAY, day);
+
+    populateDatePicker(data.availableDates, day);
+    updateStats();
+    buildGradeFilters();
+    renderTeachers();
+    renderStudentsIn();
+    renderStudentsOut();
+  } catch(e){
+    alert('Failed to load: ' + e.message);
+  } finally {
+    loading = false;
+    setRefreshSpin(false);
+  }
+}
+
+function refresh(){ loadDay(state.day || todayISO()); }
+
+function shiftDay(delta){
+  const dates = state.availableDates;
+  if (!dates.length) return;
+  const idx = dates.indexOf(state.day);
+  const next = idx + delta;
+  if (next >= 0 && next < dates.length) loadDay(dates[next]);
+}
+
+function setRefreshSpin(on){
+  const icon = document.getElementById('refresh-icon');
+  icon.className = on ? 'spin' : '';
+  icon.textContent = '⟳';
+}
+
+function populateDatePicker(dates, current){
+  const sel = document.getElementById('date-sel');
+  sel.innerHTML = '';
+  dates.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = formatDateLabel(d);
+    if (d === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  document.getElementById('prev-btn').disabled = dates.indexOf(current) >= dates.length - 1;
+  document.getElementById('next-btn').disabled = dates.indexOf(current) <= 0;
+}
+
+function formatDateLabel(iso){
+  const [y,m,d] = iso.split('-');
+  const date = new Date(+y, +m-1, +d);
+  return date.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+
+function updateStats(){
+  const inCount  = state.studentsIn.length;
+  const outCount = state.studentsOut.length;
+  const teacherCount = new Set(
+    state.teachers.filter(t => t.timeIn).map(t => t.firstName+'|'+t.lastName)
+  ).size;
+  const stillOut = outCount;
+
+  document.getElementById('stat-in').textContent       = inCount;
+  document.getElementById('stat-out').textContent      = outCount;
+  document.getElementById('stat-teachers').textContent = teacherCount;
+  document.getElementById('stat-still-out').textContent = stillOut;
+}
+
+function buildGradeFilters(){
+  const gradesIn  = [...new Set(state.studentsIn.map(s=>s.grade).filter(Boolean))].sort(gradeSort);
+  const gradesOut = [...new Set(state.studentsOut.map(s=>s.grade).filter(Boolean))].sort(gradeSort);
+  buildFilters('grade-filters-in',  gradesIn,  v=>{ gradeFilterIn=v;  renderStudentsIn(); });
+  buildFilters('grade-filters-out', gradesOut, v=>{ gradeFilterOut=v; renderStudentsOut(); });
+}
+
+function gradeSort(a, b){
+  const n = s => { const m=s.match(/\d+/); return m?+m[0]:999; };
+  return n(a)-n(b);
+}
+
+function buildFilters(containerId, grades, onChange){
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  const all = makeFilterBtn('All', true, () => { onChange('all'); updateFilterBtns(el, 'all'); });
+  el.appendChild(all);
+  grades.forEach(g => {
+    el.appendChild(makeFilterBtn(g, false, () => { onChange(g); updateFilterBtns(el, g); }));
+  });
+}
+
+function makeFilterBtn(label, active, fn){
+  const b = document.createElement('button');
+  b.className = 'filter-btn' + (active ? ' active' : '');
+  b.textContent = label;
+  b.dataset.val = label === 'All' ? 'all' : label;
+  b.onclick = fn;
+  return b;
+}
+
+function updateFilterBtns(container, activeVal){
+  container.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.val === activeVal);
+  });
+}
+
+function norm(s){ return String(s||'').toLowerCase(); }
+
+function renderTeachers(){
+  const q = norm(document.getElementById('teacher-search').value);
+  const pairMap = {};
+
+  state.teachers.forEach(t => {
+    const key = t.lastName + '|' + t.firstName;
+    if (!pairMap[key]) pairMap[key] = { firstName:t.firstName, lastName:t.lastName, ins:[], outs:[] };
+    if (t.timeIn)  pairMap[key].ins.push(t.timeIn);
+    if (t.timeOut) pairMap[key].outs.push(t.timeOut);
+  });
+
+  let rows = Object.values(pairMap).filter(t => {
+    const name = norm(t.firstName + ' ' + t.lastName);
+    return !q || name.includes(q);
+  }).sort((a,b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+
+  document.getElementById('teacher-count').textContent = rows.length + ' teacher' + (rows.length!==1?'s':'');
+
+  if (!rows.length){
+    document.getElementById('teacher-table').innerHTML = '<div class="empty-state">No teachers found</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Name</th><th>Time in</th><th>Time out</th></tr></thead><tbody>';
+  rows.forEach(t => {
+    const timeIn  = t.ins.length  ? `<span class="time-badge in">${t.ins[0]}</span>`  : '<span class="time-badge empty">—</span>';
+    const timeOut = t.outs.length ? `<span class="time-badge out">${t.outs[0]}</span>` : '<span class="time-badge empty">—</span>';
+    html += `<tr><td class="name-cell">${esc(t.lastName)}, ${esc(t.firstName)}</td><td>${timeIn}</td><td>${timeOut}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('teacher-table').innerHTML = html;
+}
+
+function renderStudentsIn(){
+  const q = norm(document.getElementById('in-search').value);
+  let rows = state.studentsIn.filter(s => {
+    if (gradeFilterIn !== 'all' && s.grade !== gradeFilterIn) return false;
+    if (q) {
+      const name = norm(s.firstName + ' ' + s.lastName);
+      return name.includes(q) || norm(s.personId).includes(q);
+    }
+    return true;
+  }).sort((a,b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+
+  document.getElementById('in-count').textContent = rows.length + ' student' + (rows.length!==1?'s':'');
+
+  if (!rows.length){
+    document.getElementById('in-table').innerHTML = '<div class="empty-state">No students found</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Name</th><th>Grade</th><th>Time in</th></tr></thead><tbody>';
+  rows.forEach(s => {
+    html += `<tr>
+      <td class="name-cell">${esc(s.lastName)}, ${esc(s.firstName)}</td>
+      <td>${s.grade ? `<span class="grade-badge">${esc(s.grade)}</span>` : ''}</td>
+      <td>${s.timeIn ? `<span class="time-badge in">${esc(s.timeIn)}</span>` : '<span class="time-badge empty">—</span>'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('in-table').innerHTML = html;
+}
+
+function renderStudentsOut(){
+  const q = norm(document.getElementById('out-search').value);
+  let rows = state.studentsOut.filter(s => {
+    if (gradeFilterOut !== 'all' && s.grade !== gradeFilterOut) return false;
+    if (q) {
+      const name = norm(s.firstName + ' ' + s.lastName);
+      return name.includes(q) || norm(s.personId).includes(q);
+    }
+    return true;
+  }).sort((a,b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+
+  document.getElementById('out-count').textContent = rows.length + ' student' + (rows.length!==1?'s':'');
+
+  if (!rows.length){
+    document.getElementById('out-table').innerHTML = '<div class="empty-state">No students found</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th>Name</th><th>Grade</th><th>Time out</th></tr></thead><tbody>';
+  rows.forEach(s => {
+    html += `<tr>
+      <td class="name-cell">${esc(s.lastName)}, ${esc(s.firstName)}</td>
+      <td>${s.grade ? `<span class="grade-badge">${esc(s.grade)}</span>` : ''}</td>
+      <td>${s.timeOut ? `<span class="time-badge out">${esc(s.timeOut)}</span>` : '<span class="time-badge empty">—</span>'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('out-table').innerHTML = html;
+}
+
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+boot();
+</script>
+</body>
+</html>
